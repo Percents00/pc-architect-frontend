@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Конфигуратор ПК | PC-ARCHITECT</title>
+  <link rel="stylesheet" href="style.css">
+  <script src="compatibility.js" defer></script>
+  <script src="auth.js" defer></script>
+  <script src="app.js" defer></script>
+</head>
+<body>
+  <header class="app-header">
+    <div class="logo">PC-ARCHITECT <span>// Core</span></div>
+    <nav class="nav-links" aria-label="Основная навигация">
+      <a href="index.html" class="active">Конструктор</a>
+      <a href="#catalog" id="openCatalog">Каталог комплектующих</a>
+    </nav>
+    <div class="user-block auth-controls">
+      <span id="authStatus" role="status">Проверка сеанса…</span>
+      <button type="button" class="btn btn-secondary" id="openAuth" disabled>Войти / зарегистрироваться</button>
+      <button type="button" class="btn btn-secondary" id="openAccount" hidden>Личный кабинет</button>
+      <button type="button" class="btn btn-secondary" id="logoutButton" hidden>Выйти</button>
+    </div>
+  </header>
+
+  <main class="workspace">
+    <section class="builder-column" aria-label="Конструктор ПК">
+      <div class="builder-toolbar">
+        <input type="text" class="build-title-input" id="buildTitle" value="Моя сборка ПК" maxlength="120" aria-label="Название сборки">
+        <div class="visibility-controls">
+          <button type="button" class="btn btn-primary" id="saveBuild" disabled>Сохранить в кабинет</button>
+        </div>
+      </div>
+      <p class="audit-note" id="buildMessage" role="status"></p>
+      <div class="catalog-toolbar">
+        <p id="catalogNotice" class="audit-note" role="status">Загружаем каталог…</p>
+        <div class="catalog-toolbar-actions">
+          <button type="button" class="btn btn-secondary" id="loadExample" disabled>Заполнить пример</button>
+          <button type="button" class="btn btn-secondary" id="clearBuild" disabled>Очистить сборку</button>
+        </div>
+      </div>
+      <div class="connection-error" id="connectionError" role="alert" hidden>
+        <p id="connectionMessage"></p>
+        <button type="button" class="btn btn-secondary" id="retryCatalog">Повторить загрузку</button>
+      </div>
+      <noscript><p class="connection-error">Для работы конструктора включите JavaScript.</p></noscript>
+      <div class="slots-container" id="slotsContainer"></div>
+    </section>
+
+    <aside class="audit-panel" aria-label="Результаты проверки">
+      <div class="card" aria-live="polite" aria-atomic="true">
+        <h3>Аудит совместимости</h3>
+        <div class="badge badge-neutral" id="validationBadge">Ожидаем каталог</div>
+        <p class="audit-note" id="validationNote">Проверяем сокет CPU, тип памяти, число модулей RAM и мощность БП.</p>
+      </div>
+      <div class="card">
+        <h3>Энергетический баланс по TDP</h3>
+        <div class="tdp-metric">
+          <span class="tdp-value" id="tdpValue">—</span>
+          <span class="tdp-max" id="tdpMax">/ БП не выбран</span>
+        </div>
+        <div class="progress-bar-bg">
+          <div class="progress-bar-fill" id="powerBar" style="width: 0%"></div>
+        </div>
+        <div class="tdp-status" id="tdpStatus">Выберите CPU и GPU для расчёта.</div>
+        <p class="audit-note">Оценка: TDP процессора + GPU. Требование к БП — большее из суммы с запасом 20% и рекомендации GPU. Остальные узлы и пиковые нагрузки пока не учитываются.</p>
+      </div>
+      <div class="card" aria-live="polite">
+        <h3>Предупреждения системы</h3>
+        <ul class="warning-list" id="warningList"><li>Выберите комплектующие для проверки.</li></ul>
+        <p class="audit-note">Базовая проверка не оценивает размеры компонентов, охлаждение и версию BIOS.</p>
+      </div>
+      <button class="btn btn-primary btn-block" disabled title="Пока недоступно">Экспорт спецификации</button>
+    </aside>
+  </main>
+
+  <dialog id="componentDialog" aria-labelledby="dialogTitle">
+    <div class="dialog-header">
+      <h2 id="dialogTitle">Каталог комплектующих</h2>
+      <button type="button" class="btn btn-secondary" id="closeDialog" aria-label="Закрыть каталог">Закрыть</button>
+    </div>
+    <div class="catalog-filters">
+      <label>Категория<select id="categoryFilter"></select></label>
+      <label>Поиск по названию<input type="search" id="componentSearch" placeholder="Название модели" autocomplete="off"></label>
+    </div>
+    <p class="audit-note" id="catalogCount" role="status"></p>
+    <div id="componentList" class="component-list"></div>
+  </dialog>
+
+  <dialog id="authDialog" class="auth-dialog" aria-labelledby="authDialogTitle">
+    <div class="dialog-header">
+      <h2 id="authDialogTitle">Вход</h2>
+      <button type="button" class="btn btn-secondary" id="closeAuth" aria-label="Закрыть вход">Закрыть</button>
+    </div>
+    <p id="authMessage" class="form-message" role="status" aria-live="polite"></p>
+    <form id="loginForm" class="auth-form">
+      <label>Email<input type="email" id="loginEmail" autocomplete="username" maxlength="254" required></label>
+      <label>Пароль<input type="password" id="loginPassword" autocomplete="current-password" maxlength="128" required></label>
+      <button type="submit" class="btn btn-primary" id="loginSubmit">Войти</button>
+      <button type="button" class="btn btn-secondary" id="showRegister">Создать учётную запись</button>
+    </form>
+    <form id="registerForm" class="auth-form" hidden>
+      <label>Имя пользователя<input type="text" id="registerUsername" autocomplete="username" minlength="3" maxlength="40" pattern="[A-Za-z0-9_]{3,40}" required></label>
+      <p class="audit-note">От 3 до 40 латинских букв, цифр или знаков подчёркивания.</p>
+      <label>Email<input type="email" id="registerEmail" autocomplete="email" maxlength="254" required></label>
+      <label>Пароль<input type="password" id="registerPassword" autocomplete="new-password" minlength="12" maxlength="128" required></label>
+      <p class="audit-note">От 12 до 128 символов. Избегайте распространённых паролей и сходства с именем или email.</p>
+      <label>Повторите пароль<input type="password" id="registerConfirm" autocomplete="new-password" minlength="12" maxlength="128" required></label>
+      <button type="submit" class="btn btn-primary" id="registerSubmit">Зарегистрироваться</button>
+      <button type="button" class="btn btn-secondary" id="showLogin">Уже есть учётная запись</button>
+    </form>
+  </dialog>
+
+  <dialog id="accountDialog" aria-labelledby="accountTitle">
+    <div class="dialog-header">
+      <h2 id="accountTitle">Личный кабинет</h2>
+      <button type="button" class="btn btn-secondary" id="closeAccount" aria-label="Закрыть кабинет">Закрыть</button>
+    </div>
+    <p id="accountProfile" class="account-profile"></p>
+    <h3>Мои сборки</h3>
+    <p class="audit-note">Сборки доступны только вам. Создайте конфигурацию в конструкторе и сохраните её в кабинет.</p>
+    <p id="accountMessage" class="form-message" role="status" aria-live="polite"></p>
+    <div id="accountBuilds" class="account-builds"></div>
+    <div class="account-pagination">
+      <button type="button" class="btn btn-secondary" id="previousBuilds" disabled>Назад</button>
+      <span id="buildsPage"></span>
+      <button type="button" class="btn btn-secondary" id="nextBuilds" disabled>Далее</button>
+    </div>
+  </dialog>
+</body>
+</html>
